@@ -1,0 +1,14 @@
+BasedOnStyle: google
+
+AlignTrailingComments: true
+AlwaysBreakAfterDefinitionReturnType: false
+AlwaysBreakTemplateDeclarations: true
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+#BreakBeforeBraces: Allman
+ColumnLimit: 120
+IndentCaseLabels: false
+IndentWidth: 4
+MaxEmptyLinesToKeep: 2
+Standard: Cpp11
+UseTab: Never

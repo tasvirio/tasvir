@@ -1,0 +1,8 @@
+add_subdirectory(benchmark)
+add_subdirectory(cuckoo-map)
+add_subdirectory(cuckoo-bench)
+add_subdirectory(cuckoo-lb)
+add_subdirectory(monitor)
+add_subdirectory(routing_dynamic)
+add_subdirectory(routing_dijkstra)
+add_subdirectory(openflow)

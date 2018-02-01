@@ -1,0 +1,5 @@
+file(GLOB cuckoo_sources . *.cc *.c)
+add_tasvir_exec(cuckoo ${cuckoo_sources})
+set_property(TARGET cuckoo PROPERTY CXX_STANDARD 14)
+target_compile_definitions(cuckoo PRIVATE NO_LOG=0 NO_SERVICE=0) 
+target_link_libraries(cuckoo pthread rt)

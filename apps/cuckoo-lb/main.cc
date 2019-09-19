@@ -9,6 +9,9 @@
 #include <stdio.h>
 #include <time.h>
 
+#define MS2US 1000
+#define S2US (1000 * MS2US)
+
 // Consts
 const size_t BUCKETS = 1 << 18;  // Tune this to change pressure
 const size_t ENTRIES = BUCKETS * 4;
@@ -68,7 +71,7 @@ static inline uint32_t fast_random1() {
   return seed >> 32;
 }
 
-static void rpc_find_be(void *v, std::ptrdiff_t *o);
+static bool rpc_find_be(void *v, std::ptrdiff_t *o);
 static inline size_t find_backend(size_t owner, size_t tbl, size_t address) {
   auto entry = tables[tbl]->Find(address);
   served++;  // Account for packets here
@@ -104,7 +107,7 @@ static inline void remove_address(size_t tbl, size_t address) {
   }
 }
 
-static void rpc_rem(void *v, std::ptrdiff_t *o) {
+static bool rpc_rem(void *v, std::ptrdiff_t *o) {
   uint8_t *bv = (uint8_t *)v;
   size_t *ret = (size_t *)(&bv[0]);
   size_t arg = *(size_t *)(&bv[o[0]]);
@@ -113,12 +116,13 @@ static void rpc_rem(void *v, std::ptrdiff_t *o) {
   rpc_recd++;
   *ret = 0;
   if (!init) {
-    return;
+    return true;
   }
   remove_address(target, arg);
+  return true;
 }
 
-static void rpc_find_be(void *v, std::ptrdiff_t *o) {
+static bool rpc_find_be(void *v, std::ptrdiff_t *o) {
   uint8_t *bv = (uint8_t *)v;
   size_t *ret = (size_t *)(&bv[0]);
   size_t arg = *(size_t *)(&bv[o[0]]);
@@ -127,9 +131,10 @@ static void rpc_find_be(void *v, std::ptrdiff_t *o) {
   rpc_recd++;
   if (!init) {
     *ret = 0;
-    return;
+    return true;
   }
   *ret = find_backend(id, target, arg);
+  return true;
 }
 
 static void generate_flows(size_t *flows, size_t *deleted, size_t change) {
@@ -241,8 +246,7 @@ void attach_table(tasvir_area_desc *root_desc, size_t id) {
   char area_name[32];
   snprintf(area_name, 32, "dict%lu", id);
   std::cout << "Waiting to attach to " << area_name << std::endl;
-  target_areas[id] =
-      tasvir_attach_wait(root_desc, area_name, NULL, false, 600 * 1000 * 1000);
+  target_areas[id] = tasvir_attach_wait(60 * S2US, area_name);
   std::cout << "Attached to " << area_name << std::endl;
   tables[id] = (ConnectionTable *)tasvir_data(target_areas[id]);
 }
@@ -263,10 +267,8 @@ static inline void busy_sleep(clock_t millis) {
 int main(int argc, char *argv[]) {
   std::cout << "Running cuckoo bench" << std::endl;
   if (argc < 5) {
-    std::cerr << "Usage " << argv[0] << " master core lbs [backends]"
-              << std::endl;
+    std::cerr << "Usage " << argv[0] << " master lbs [backends]" << std::endl;
     std::cerr << "id: <int> process ID 0 is master" << std::endl;
-    std::cerr << "core: <int> core to use" << std::endl;
     std::cerr << "lb_partitions: <int> how many load balancer partitions "
               << "use more than 2 -- otherwise things are sad" << std::endl;
     std::cerr << "lbs: <int> how many load balancers" << std::endl;
@@ -280,7 +282,6 @@ int main(int argc, char *argv[]) {
   }
 
   id = std::strtoul(argv[1], NULL, 10);
-  unsigned long core = std::strtoul(argv[2], NULL, 10);
   unsigned long lb_partitions = std::strtoul(argv[3], NULL, 10);
   unsigned long lbs = std::strtoul(argv[4], NULL, 10);
   unsigned long backends = 0;
@@ -291,14 +292,11 @@ int main(int argc, char *argv[]) {
   if (id == 0) {
     backends = std::strtoul(argv[5], NULL, 10);
   }
-  std::cout << "Running on core " << core
-            << (id == 0 ? " as master" : "as worker") << std::endl;
-  tasvir_area_desc *root_desc = tasvir_init(TASVIR_THREAD_TYPE_APP, core, NULL);
+  tasvir_area_desc *root_desc = tasvir_init();
   if (!root_desc) {
     std::cerr << "tasvir_init failed" << std::endl;
     abort();
   }
-  std::cerr << "tasvir_init_done" << std::endl;
   tasvir_area_desc param = {};
   char area_name[32];
 
@@ -360,15 +358,13 @@ int main(int argc, char *argv[]) {
   if (id != 0) {
     snprintf(area_name, 32, "lut_backend");
     std::cout << "Waiting to attach to lut_backend" << std::endl;
-    lut_backend_area = tasvir_attach_wait(root_desc, area_name, NULL, false,
-                                          600 * 1000 * 1000);
+    lut_backend_area = tasvir_attach_wait(60 * S2US, area_name);
     std::cout << "Attached to lut_backend" << std::endl;
     lut_backend = (size_t *)tasvir_data(lut_backend_area);
 
     snprintf(area_name, 32, "lut_lbs");
     std::cout << "Waiting to attach to lut_lbs" << std::endl;
-    lut_lb_area = tasvir_attach_wait(root_desc, area_name, NULL, false,
-                                     600 * 1000 * 1000);
+    lut_lb_area = tasvir_attach_wait(60 * S2US, area_name);
     std::cout << "Attached to lut_lbs" << std::endl;
     lut_lb = (size_t *)tasvir_data(lut_lb_area);
   }

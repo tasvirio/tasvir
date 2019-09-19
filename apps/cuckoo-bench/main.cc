@@ -15,19 +15,16 @@ static inline uint32_t fast_random() {
 
 // 256 MB Tasvir area
 const size_t AREA_SIZE = 256ull * 1024ull * 1024ull;
-const size_t BUCKETS = 1<< 18;
+const size_t BUCKETS = 1 << 18;
 const size_t ENTRIES = BUCKETS * 4;  // 75% occupancy, should increase.
 int main(int argc, char *argv[]) {
-  std::cout << "Running cuckoo_t bench" << std::endl;
   if (argc < 2) {
-    std::cerr << "Usage " << argv[0] << " master core" << std::endl;
-    std::cerr << "core: <int> core to use" << std::endl;
+    std::cerr << "Usage " << argv[0] << " worker_id" << std::endl;
     abort();
   }
 
-  unsigned long core = std::strtoul(argv[1], NULL, 10);
-  std::cout << "Running on core " << core << " as master" << std::endl;
-  tasvir_area_desc *root_desc = tasvir_init(TASVIR_THREAD_TYPE_APP, core, NULL);
+  auto wid = std::strtoul(argv[1], NULL, 10);
+  tasvir_area_desc *root_desc = tasvir_init();
   if (!root_desc) {
     std::cerr << "tasvir_init failed" << std::endl;
     abort();
@@ -35,11 +32,10 @@ int main(int argc, char *argv[]) {
   tasvir_area_desc param = {};
   param.pd = root_desc;
   param.owner = NULL;
-  param.type = TASVIR_AREA_TYPE_APP;
   param.len = AREA_SIZE;
   char area_name[32];
   // Naming based on ID.
-  snprintf(area_name, 32, "dict%lu", core);
+  snprintf(area_name, 32, "dict%lu", wid);
   strcpy(param.name, area_name);
   tasvir_area_desc *d = tasvir_new(param);  // Created a region.
   assert(d);
@@ -75,7 +71,7 @@ int main(int argc, char *argv[]) {
       if (entry == nullptr) {
         auto insert = cuckoo_m->Insert(val, val);
         if (insert == nullptr) {
-          //cuckoo_m->Clear();
+          // cuckoo_m->Clear();
         }
       }
     }
@@ -106,7 +102,7 @@ int main(int argc, char *argv[]) {
       if (entry == nullptr) {
         auto insert = cuckoo_t->Insert(val, val);
         if (insert == nullptr) {
-          //cuckoo_t->Clear();
+          // cuckoo_t->Clear();
         }
       }
       // if (i % SERVICE_DURATION == 0) {
@@ -142,7 +138,7 @@ int main(int argc, char *argv[]) {
       if (entry == nullptr) {
         auto insert = cuckoo_t->Insert(val, val);
         if (insert == nullptr) {
-          //cuckoo_t->Clear();
+          // cuckoo_t->Clear();
         }
       }
       if (i % SERVICE_DURATION == 0) {
